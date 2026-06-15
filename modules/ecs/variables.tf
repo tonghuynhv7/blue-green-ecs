@@ -1,0 +1,14 @@
+variable "project"         { type = string }
+variable "env"             { type = string }
+variable "color"           { type = string }  # "blue" hoặc "green"
+variable "vpc_id"          { type = string }
+variable "priv_subnet_ids" { type = list(string) }
+variable "alb_sg_id"       { type = string }
+variable "target_group_arn"{ type = string }
+variable "ecr_repo_url"    { type = string }
+variable "image_tag"       { type = string }
+variable "app_port"        { type = number }
+variable "desired_count"   { type = number }
+variable "cpu"             { type = number }
+variable "memory"          { type = number }
+variable "aws_region"      { type = string }

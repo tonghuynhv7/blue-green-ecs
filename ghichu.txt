@@ -1,0 +1,36 @@
+Jenkins
+  │
+  │ --build-arg BUILD_NUMBER=42
+  ▼
+ARG nhận giá trị          (lúc build)
+  │
+  │ truyền sang
+  ▼
+ENV giữ giá trị           (lúc chạy)
+  │
+  │ process.env.BUILD_NUMBER
+  ▼
+App đọc được → "42"
+
+
+# ARG TÊN_BIẾN=giá_trị_mặc_định
+# ENV TÊN_BIẾN=${TÊN_BIẾN}
+
+wget -qO- http://localhost:3000/health || exit 1
+wget là tool download file/gọi HTTP trong Linux.
+
+wget http://localhost:3000/health
+#  Bình thường → tải file về, lưu thành file "health"
+# -q = quiet, tắt hết log của wget
+# -O = output ra file
+# -  = thay vì lưu file, in thẳng ra màn hình
+
+|| : lệnh_A || lệnh_B
+Chạy lệnh_A
+  │
+  ├── Thành công (exit code 0) → dừng, không chạy lệnh_B
+  │
+  └── Thất bại (exit code khác 0) → chạy lệnh_B
+
+exit 0 = thành công → Docker hiểu: healthy ✅
+exit 1 = thất bại   → Docker hiểu: unhealthy ❌
