@@ -26,13 +26,12 @@ pipeline {
         stage("Build Image") {
             steps {
                 sh """
-                    docker build \
-                        -t ${ECR_REPO}:${IMAGE_TAG} .
+                    docker build -t ${ECR_REPO}:${IMAGE_TAG} .
                 """
             }
         }
 
-        stage("Push to ECR") {
+        stage("Login + Push ECR") {
             steps {
                 withCredentials([aws(credentialsId: "aws-credentials")]) {
                     sh """
@@ -46,7 +45,7 @@ pipeline {
             }
         }
 
-        stage("Deploy GREEN (update service)") {
+        stage("Deploy GREEN") {
             steps {
                 withCredentials([aws(credentialsId: "aws-credentials")]) {
                     sh """
@@ -60,7 +59,7 @@ pipeline {
             }
         }
 
-        stage("Wait GREEN healthy") {
+        stage("Wait GREEN Stable") {
             steps {
                 withCredentials([aws(credentialsId: "aws-credentials")]) {
                     sh """
@@ -83,7 +82,7 @@ pipeline {
 
                         LISTENER_ARN=\$(aws elbv2 describe-listeners \
                             --load-balancer-arn \$ALB_ARN \
-                            --query "Listeners[?Port==\`80\`].ListenerArn" \
+                            --query 'Listeners[?Port==\`80\`].ListenerArn' \
                             --output text)
 
                         TG_GREEN_ARN=\$(aws elbv2 describe-target-groups \
@@ -92,10 +91,11 @@ pipeline {
                             --output text)
 
                         aws elbv2 modify-listener \
+                            --region ${AWS_REGION} \
                             --listener-arn \$LISTENER_ARN \
                             --default-actions Type=forward,TargetGroupArn=\$TG_GREEN_ARN
 
-                        echo "SWITCHED TO GREEN 🚀"
+                        echo "SWITCH SUCCESS → GREEN IS LIVE 🚀"
                     """
                 }
             }
@@ -120,7 +120,7 @@ pipeline {
         }
 
         failure {
-            echo "Deployment FAILED ❌ (you can add rollback here)"
+            echo "Deployment FAILED ❌"
         }
     }
 }
