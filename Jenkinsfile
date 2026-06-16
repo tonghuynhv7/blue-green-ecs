@@ -82,7 +82,7 @@ pipeline {
 
                         LISTENER_ARN=\$(aws elbv2 describe-listeners \
                             --load-balancer-arn \$ALB_ARN \
-                            --query 'Listeners[?Port==\`80\`].ListenerArn' \
+                            --query "Listeners[?Port=='80'].ListenerArn" \
                             --output text)
 
                         TG_GREEN_ARN=\$(aws elbv2 describe-target-groups \
