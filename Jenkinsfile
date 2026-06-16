@@ -1,47 +1,126 @@
-pipeline{
-    agent any 
-    environment {
-        AWS_REGION = "ap-southeast-1"
-        AWS_ACCOUNT_ID  = credentials("aws-account-id")
-        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/blue-green-lab"
-        IMAGE_TAG       = "${env.BUILD_NUMBER}"              
-        ALB_NAME =  "blue-green-alb"
-        CLUSTER  = "blue-green-cluster"
+pipeline {
+    agent any
 
-}
-    stages{
-        stage("check out")
-        {
-            steps{
+    environment {
+        AWS_REGION     = "ap-southeast-1"
+        AWS_ACCOUNT_ID = credentials("aws-account-id")
+
+        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/blue-green-lab"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+
+        CLUSTER = "blue-green-cluster"
+        ALB_NAME = "blue-green-alb"
+
+        GREEN_SERVICE = "green-service"
+        BLUE_SERVICE  = "blue-service"
+    }
+
+    stages {
+
+        stage("Checkout") {
+            steps {
                 checkout scm
-                echo "build number: ${BUILD_NUMBER} "
             }
         }
-        stage("build imgaes")
-        {
-            steps{
+
+        stage("Build Image") {
+            steps {
                 sh """
-                        docker build \
-                            --build-arg BUILD_NUMBER=${IMAGE_TAG} \
-                            -t ${ECR_REPO}:${IMAGE_TAG} .
-                    """
-                echo "Built : ${ECR_REPO}:${IMAGE_TAG}"
+                    docker build \
+                        -t ${ECR_REPO}:${IMAGE_TAG} .
+                """
             }
-            }
-        stage("push images")
-        {
+        }
+
+        stage("Push to ECR") {
             steps {
                 withCredentials([aws(credentialsId: "aws-credentials")]) {
-                sh """
+                    sh """
                         aws ecr get-login-password --region ${AWS_REGION} | \
                         docker login --username AWS --password-stdin \
                         ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
                         docker push ${ECR_REPO}:${IMAGE_TAG}
                     """
+                }
             }
         }
+
+        stage("Deploy GREEN (update service)") {
+            steps {
+                withCredentials([aws(credentialsId: "aws-credentials")]) {
+                    sh """
+                        aws ecs update-service \
+                            --cluster ${CLUSTER} \
+                            --service ${GREEN_SERVICE} \
+                            --force-new-deployment \
+                            --region ${AWS_REGION}
+                    """
+                }
+            }
+        }
+
+        stage("Wait GREEN healthy") {
+            steps {
+                withCredentials([aws(credentialsId: "aws-credentials")]) {
+                    sh """
+                        aws ecs wait services-stable \
+                            --cluster ${CLUSTER} \
+                            --services ${GREEN_SERVICE}
+                    """
+                }
+            }
+        }
+
+        stage("Switch ALB → GREEN") {
+            steps {
+                withCredentials([aws(credentialsId: "aws-credentials")]) {
+                    sh """
+                        ALB_ARN=\$(aws elbv2 describe-load-balancers \
+                            --names ${ALB_NAME} \
+                            --query 'LoadBalancers[0].LoadBalancerArn' \
+                            --output text)
+
+                        LISTENER_ARN=\$(aws elbv2 describe-listeners \
+                            --load-balancer-arn \$ALB_ARN \
+                            --query "Listeners[?Port==\`80\`].ListenerArn" \
+                            --output text)
+
+                        TG_GREEN_ARN=\$(aws elbv2 describe-target-groups \
+                            --names green-tg \
+                            --query 'TargetGroups[0].TargetGroupArn' \
+                            --output text)
+
+                        aws elbv2 modify-listener \
+                            --listener-arn \$LISTENER_ARN \
+                            --default-actions Type=forward,TargetGroupArn=\$TG_GREEN_ARN
+
+                        echo "SWITCHED TO GREEN 🚀"
+                    """
+                }
+            }
+        }
+
+        stage("Verify Production") {
+            steps {
+                sh """
+                    sleep 10
+                    curl -s http://$(aws elbv2 describe-load-balancers \
+                        --names ${ALB_NAME} \
+                        --query 'LoadBalancers[0].DNSName' \
+                        --output text)
+                """
+            }
         }
     }
 
+    post {
+        success {
+            echo "Deployment SUCCESS 🚀"
+        }
+
+        failure {
+            echo "Deployment FAILED ❌ (you can add rollback here)"
+        }
+    }
 }
