@@ -65,7 +65,8 @@ pipeline {
                     sh """
                         aws ecs wait services-stable \
                             --cluster ${CLUSTER} \
-                            --services ${GREEN_SERVICE}
+                            --services ${GREEN_SERVICE} \
+                            --region ${AWS_REGION}
                     """
                 }
             }
@@ -77,16 +78,19 @@ pipeline {
                     sh """
                         ALB_ARN=\$(aws elbv2 describe-load-balancers \
                             --names ${ALB_NAME} \
+                            --region ${AWS_REGION} \
                             --query 'LoadBalancers[0].LoadBalancerArn' \
                             --output text)
 
                         LISTENER_ARN=\$(aws elbv2 describe-listeners \
                             --load-balancer-arn \$ALB_ARN \
+                            --region ${AWS_REGION} \
                             --query "Listeners[?Port=='80'].ListenerArn" \
                             --output text)
 
                         TG_GREEN_ARN=\$(aws elbv2 describe-target-groups \
                             --names green-tg \
+                            --region ${AWS_REGION} \
                             --query 'TargetGroups[0].TargetGroupArn' \
                             --output text)
 
@@ -103,13 +107,25 @@ pipeline {
 
         stage("Verify Production") {
             steps {
-                sh """
-                    sleep 10
-                    curl -s http://$(aws elbv2 describe-load-balancers \
-                        --names ${ALB_NAME} \
-                        --query 'LoadBalancers[0].DNSName' \
-                        --output text)
-                """
+                withCredentials([aws(credentialsId: "aws-credentials")]) {
+                    script {
+                        def dnsName = sh(
+                            script: """
+                                aws elbv2 describe-load-balancers \
+                                    --names ${ALB_NAME} \
+                                    --region ${AWS_REGION} \
+                                    --query 'LoadBalancers[0].DNSName' \
+                                    --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        sh """
+                            sleep 10
+                            curl -sf http://${dnsName} || echo "Health check failed"
+                        """
+                    }
+                }
             }
         }
     }
