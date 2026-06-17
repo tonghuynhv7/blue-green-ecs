@@ -2,7 +2,7 @@ const http = require("http");
 
 const VERSION = "v1.0.1";
 const BUILD_NUMBER = process.env.BUILD_NUMBER || "local";
-const COLOR = process.env.APP_COLOR || "blue";
+const COLOR = process.env.APP_COLOR || "green";
 
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
