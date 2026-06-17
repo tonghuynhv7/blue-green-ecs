@@ -104,7 +104,7 @@ print(json.dumps(td))
                     """
                 }
             }
-        }
+--names tg-green \
 
         stage("Health Check GREEN") {
             steps {
@@ -167,7 +167,7 @@ print(json.dumps(td))
                             returnStdout: true,
                             script: """
                                 aws elbv2 describe-target-groups \
-                                    --names tg-green \
+                                    --names green \
                                     --region ${AWS_REGION} \
                                     --query 'TargetGroups[0].TargetGroupArn' \
                                     --output text
