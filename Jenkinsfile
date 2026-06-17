@@ -49,7 +49,6 @@ pipeline {
             steps {
                 withCredentials([aws(credentialsId: "aws-credentials")]) {
                     sh """
-                        # Bước 1: Lấy task def hiện tại của green-service
                         CURRENT_TASK_DEF=\$(aws ecs describe-services \
                             --cluster ${CLUSTER} \
                             --services ${GREEN_SERVICE} \
@@ -59,7 +58,6 @@ pipeline {
 
                         echo "Current Task Def: \$CURRENT_TASK_DEF"
 
-                        # Bước 2: Lấy JSON task def + đổi image mới
                         NEW_TASK_DEF=\$(aws ecs describe-task-definition \
                             --task-definition \$CURRENT_TASK_DEF \
                             --region ${AWS_REGION} \
@@ -73,7 +71,6 @@ for key in ['taskDefinitionArn','revision','status','requiresAttributes','compat
 print(json.dumps(td))
 ")
 
-                        # Bước 3: Register task def mới
                         NEW_TASK_DEF_ARN=\$(aws ecs register-task-definition \
                             --region ${AWS_REGION} \
                             --cli-input-json "\$NEW_TASK_DEF" \
@@ -82,7 +79,6 @@ print(json.dumps(td))
 
                         echo "New Task Def: \$NEW_TASK_DEF_ARN"
 
-                        # Bước 4: Update green-service dùng task def mới
                         aws ecs update-service \
                             --cluster ${CLUSTER} \
                             --service ${GREEN_SERVICE} \
@@ -115,19 +111,19 @@ print(json.dumps(td))
                 withCredentials([aws(credentialsId: "aws-credentials")]) {
                     script {
                         def dnsName = sh(
+                            returnStdout: true,
                             script: """
                                 aws elbv2 describe-load-balancers \
                                     --names ${ALB_NAME} \
                                     --region ${AWS_REGION} \
                                     --query 'LoadBalancers[0].DNSName' \
                                     --output text
-                            """,
-                            returnStdout: true
+                            """
                         ).trim()
 
                         sh """
                             echo "Health check GREEN: http://${dnsName}:81"
-                            curl -sf http://${dnsName}:81 || (echo "Health check FAILED ❌" && exit 1)
+                            curl -sf http://${dnsName}:81 || (echo "Health check FAILED" && exit 1)
                             echo "Health check PASSED ✅"
                         """
                     }
@@ -137,43 +133,56 @@ print(json.dumps(td))
 
         stage("Approve Switch Traffic") {
             steps {
-                input message: "Switch traffic sang GREEN? 🚀", ok: "Yes, Switch!"
+                input message: "Switch traffic sang GREEN?", ok: "Yes, Switch!"
             }
         }
 
-        stage("Switch ALB → GREEN") {
+        stage("Switch ALB GREEN") {
             steps {
                 withCredentials([aws(credentialsId: "aws-credentials")]) {
-                    sh """
-                        # Lấy ALB ARN
-                        ALB_ARN=\$(aws elbv2 describe-load-balancers \
-                            --names ${ALB_NAME} \
-                            --region ${AWS_REGION} \
-                            --query 'LoadBalancers[0].LoadBalancerArn' \
-                            --output text)
+                    script {
+                        def albArn = sh(
+                            returnStdout: true,
+                            script: """
+                                aws elbv2 describe-load-balancers \
+                                    --names ${ALB_NAME} \
+                                    --region ${AWS_REGION} \
+                                    --query 'LoadBalancers[0].LoadBalancerArn' \
+                                    --output text
+                            """
+                        ).trim()
 
-                        # Lấy Listener port 80
-                        LISTENER_ARN=\$(aws elbv2 describe-listeners \
-                            --load-balancer-arn \$ALB_ARN \
-                            --region ${AWS_REGION} \
-                            --query 'Listeners[?Port==\`80\`].ListenerArn' \
-                            --output text)
+                        def listenerArn = sh(
+                            returnStdout: true,
+                            script: """
+                                aws elbv2 describe-listeners \
+                                    --load-balancer-arn ${albArn} \
+                                    --region ${AWS_REGION} \
+                                    --query 'Listeners[0].ListenerArn' \
+                                    --output text
+                            """
+                        ).trim()
 
-                        # Lấy Target Group GREEN ARN
-                        TG_GREEN_ARN=\$(aws elbv2 describe-target-groups \
-                            --names tg-green \
-                            --region ${AWS_REGION} \
-                            --query 'TargetGroups[0].TargetGroupArn' \
-                            --output text)
+                        def tgGreenArn = sh(
+                            returnStdout: true,
+                            script: """
+                                aws elbv2 describe-target-groups \
+                                    --names tg-green \
+                                    --region ${AWS_REGION} \
+                                    --query 'TargetGroups[0].TargetGroupArn' \
+                                    --output text
+                            """
+                        ).trim()
 
-                        # Switch traffic
-                        aws elbv2 modify-listener \
-                            --listener-arn \$LISTENER_ARN \
-                            --default-actions Type=forward,TargetGroupArn=\$TG_GREEN_ARN \
-                            --region ${AWS_REGION}
+                        sh """
+                            aws elbv2 modify-listener \
+                                --listener-arn ${listenerArn} \
+                                --default-actions Type=forward,TargetGroupArn=${tgGreenArn} \
+                                --region ${AWS_REGION}
 
-                        echo "SWITCH SUCCESS → GREEN IS LIVE 🚀"
-                    """
+                            echo "SWITCH SUCCESS GREEN IS LIVE"
+                        """
+                    }
                 }
             }
         }
@@ -183,20 +192,20 @@ print(json.dumps(td))
                 withCredentials([aws(credentialsId: "aws-credentials")]) {
                     script {
                         def dnsName = sh(
+                            returnStdout: true,
                             script: """
                                 aws elbv2 describe-load-balancers \
                                     --names ${ALB_NAME} \
                                     --region ${AWS_REGION} \
                                     --query 'LoadBalancers[0].DNSName' \
                                     --output text
-                            """,
-                            returnStdout: true
+                            """
                         ).trim()
 
                         sh """
                             sleep 10
                             echo "Verify production: http://${dnsName}"
-                            curl -sf http://${dnsName} || echo "Verify FAILED ❌"
+                            curl -sf http://${dnsName} || echo "Verify FAILED"
                             echo "Verify PASSED ✅"
                         """
                     }
@@ -207,10 +216,10 @@ print(json.dumps(td))
 
     post {
         success {
-            echo "Deployment SUCCESS 🚀"
+            echo "Deployment SUCCESS"
         }
         failure {
-            echo "Deployment FAILED ❌"
+            echo "Deployment FAILED"
         }
     }
 }
