@@ -8,7 +8,7 @@ pipeline {
         ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/blue-green-lab"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
 
-        CLUSTER      = "blue-green-cluster"
+        CLUSTER      = "cluser-blue-green"
         ALB_NAME     = "alb-green-blue"
 
         GREEN_SERVICE = "green-service"
