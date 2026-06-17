@@ -100,11 +100,11 @@ print(json.dumps(td))
                             --cluster ${CLUSTER} \
                             --services ${GREEN_SERVICE} \
                             --region ${AWS_REGION}
-                        echo "GREEN is stable! ✅"
+                        echo "GREEN is stable!"
                     """
                 }
             }
---names green \
+        }
 
         stage("Health Check GREEN") {
             steps {
@@ -124,7 +124,7 @@ print(json.dumps(td))
                         sh """
                             echo "Health check GREEN: http://${dnsName}:81"
                             curl -sf http://${dnsName}:81 || (echo "Health check FAILED" && exit 1)
-                            echo "Health check PASSED ✅"
+                            echo "Health check PASSED"
                         """
                     }
                 }
@@ -167,7 +167,7 @@ print(json.dumps(td))
                             returnStdout: true,
                             script: """
                                 aws elbv2 describe-target-groups \
-                                    --names 'green' \
+                                    --names green \
                                     --region ${AWS_REGION} \
                                     --query 'TargetGroups[0].TargetGroupArn' \
                                     --output text
@@ -206,7 +206,7 @@ print(json.dumps(td))
                             sleep 10
                             echo "Verify production: http://${dnsName}"
                             curl -sf http://${dnsName} || echo "Verify FAILED"
-                            echo "Verify PASSED ✅"
+                            echo "Verify PASSED"
                         """
                     }
                 }
