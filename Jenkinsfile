@@ -158,8 +158,12 @@ print(json.dumps(td))
                                 aws elbv2 describe-listeners \
                                     --load-balancer-arn ${albArn} \
                                     --region ${AWS_REGION} \
-                                    --query 'Listeners[0].ListenerArn' \
-                                    --output text
+                                    --output json | python3 -c "
+                                    import json,sys
+listeners = json.load(sys.stdin)['Listeners']
+print([l for l in listeners if l['Port']==80][0]['ListenerArn'])
+"
+                                    
                             """
                         ).trim()
 
