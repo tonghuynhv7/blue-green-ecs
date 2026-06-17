@@ -156,7 +156,7 @@ print(json.dumps(td))
                             returnStdout: true,
                             script: """
                                 aws elbv2 describe-listeners \
-                                    --load-balancer-arn ${albArn} \ 
+                                    --load-balancer-arn ${albArn} \
                                     --region ${AWS_REGION} \
                                     --output json | python3 -c "
 import json,sys
