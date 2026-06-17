@@ -159,7 +159,7 @@ print(json.dumps(td))
                                     --load-balancer-arn ${albArn} \
                                     --region ${AWS_REGION} \
                                     --output json | python3 -c "
-                                    import json,sys
+import json,sys
 listeners = json.load(sys.stdin)['Listeners']
 print([l for l in listeners if l['Port']==80][0]['ListenerArn'])
 "
