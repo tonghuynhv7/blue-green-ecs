@@ -26,7 +26,7 @@ pipeline {
         stage("Build Image") {
             steps {
                 sh """
-                    docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+                    docker build --no-cache -t ${ECR_REPO}:${IMAGE_TAG} .
                 """
             }
         }
@@ -156,7 +156,7 @@ print(json.dumps(td))
                             returnStdout: true,
                             script: """
                                 aws elbv2 describe-listeners \
-                                    --load-balancer-arn ${albArn} \
+                                    --load-balancer-arn ${albArn} \ 
                                     --region ${AWS_REGION} \
                                     --output json | python3 -c "
 import json,sys
