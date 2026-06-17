@@ -104,7 +104,7 @@ print(json.dumps(td))
                     """
                 }
             }
---names tg-green \
+--names green \
 
         stage("Health Check GREEN") {
             steps {
