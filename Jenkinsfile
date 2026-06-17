@@ -156,7 +156,7 @@ print(json.dumps(td))
                         LISTENER_ARN=\$(aws elbv2 describe-listeners \
                             --load-balancer-arn \$ALB_ARN \
                             --region ${AWS_REGION} \
-                            --query "Listeners[?Port==\`80\`].ListenerArn" \
+                            --query 'Listeners[?Port==\`80\`].ListenerArn' \
                             --output text)
 
                         # Lấy Target Group GREEN ARN
