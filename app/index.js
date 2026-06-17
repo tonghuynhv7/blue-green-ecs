@@ -13,7 +13,7 @@ const server = http.createServer((req, res) => {
 
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({
-    message: `Hello from ${COLOR.toUpperCase()} 🚀`,
+    message: `Hello from  tong ${COLOR.toUpperCase()} 🚀`,
     version: VERSION,
     build: BUILD_NUMBER,
     color: COLOR,
