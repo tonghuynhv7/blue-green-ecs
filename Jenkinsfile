@@ -167,7 +167,7 @@ print(json.dumps(td))
                             returnStdout: true,
                             script: """
                                 aws elbv2 describe-target-groups \
-                                    --names green \
+                                    --names 'green' \
                                     --region ${AWS_REGION} \
                                     --query 'TargetGroups[0].TargetGroupArn' \
                                     --output text
